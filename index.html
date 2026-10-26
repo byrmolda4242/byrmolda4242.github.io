@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ЭтноГид</title>
+    <style>
+        :root { --primary: #8B4513; --bg: #fdfbf7; --text: #333; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: var(--bg); color: var(--text); }
+        header { background: var(--primary); color: white; padding: 1rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; }
+        h1 { margin: 0; font-size: 1.5rem; }
+        nav button { background: none; border: 1px solid white; color: white; padding: 0.5rem 1rem; cursor: pointer; border-radius: 4px; margin-left: 5px; }
+        nav button:hover, nav button.active { background: white; color: var(--primary); }
+        main { padding: 1rem; max-width: 1000px; margin: auto; }
+        .tab { display: none; }
+        .tab.active { display: block; }
+        .card { background: white; border: 1px solid #ddd; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .card h3 { margin-top: 0; color: var(--primary); }
+        .tag { display: inline-block; background: #eee; padding: 0.2rem 0.5rem; border-radius: 12px; font-size: 0.8rem; margin-right: 5px; }
+        .form-group { margin-bottom: 1rem; }
+        input[type="text"], select { width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; margin-top: 5px; }
+        .btn { background: var(--primary); color: white; border: none; padding: 0.7rem 1.5rem; cursor: pointer; border-radius: 4px; font-weight: bold; }
+        .btn:hover { opacity: 0.9; }
+        .recommendation { background: #fff3e0; border-left: 4px solid #ff9800; padding: 1rem; margin-bottom: 1rem; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🌿 ЭтноГид</h1>
+    <nav>
+        <button class="active" onclick="showTab('calendar')">Календарь</button>
+        <button onclick="showTab('catalog')">Каталог ремёсел</button>
+        <button onclick="showTab('classes')">Мастер-классы</button>
+        <button onclick="showTab('profile')">Личный кабинет</button>
+    </nav>
+</header>
+
+<main>
+    <!-- Вкладка: Календарь и Рекомендации -->
+    <div id="calendar" class="tab active">
+        <div id="recommendations"></div>
+        <h2>Календарь событий</h2>
+        <div id="eventsList"></div>
+    </div>
+
+    <!-- Вкладка: Каталог -->
+    <div id="catalog" class="tab">
+        <h2>Каталог народных ремёсел</h2>
+        <div id="catalogList"></div>
+    </div>
+
+    <!-- Вкладка: Мастер-классы -->
+    <div id="classes" class="tab">
+        <h2>Мастер-классы</h2>
+        <p id="cityFilterInfo"></p>
+        <div id="classesList"></div>
+    </div>
+
+    <!-- Вкладка: Профиль -->
+    <div id="profile" class="tab">
+        <h2>Личный кабинет</h2>
+        <div class="card" id="authForm">
+            <h3>Регистрация / Вход</h3>
+            <div class="form-group">
+                <label>Ваше имя:</label>
+                <input type="text" id="userName" placeholder="Иван">
+            </div>
+            <div class="form-group">
+                <label>Ваш город:</label>
+                <input type="text" id="userCity" placeholder="Москва">
+            </div>
+            <div class="form-group">
+                <label>Интересующие направления (через запятую):</label>
+                <input type="text" id="userInterests" placeholder="Гончарное дело, Роспись">
+                <small style="color:#666">Например: Резьба, Ткачество, Гжель</small>
+            </div>
+            <button class="btn" onclick="saveProfile()">Сохранить профиль</button>
+        </div>
+        
+        <div class="card" id="profileInfo" style="display:none;">
+            <h3>Ваш профиль</h3>
+            <p><strong>Имя:</strong> <span id="dispName"></span></p>
+            <p><strong>Город:</strong> <span id="dispCity"></span></p>
+            <p><strong>Интересы:</strong> <span id="dispInterests"></span></p>
+            <button class="btn" style="background:#c0392b" onclick="logout()">Выйти</button>
+        </div>
+    </div>
+</main>
+
+<script>
+    // База данных (имитация)
+    const db = {
+        events: [
+            { title: "Фестиваль славянской культуры", date: "12 июня", tags: ["Праздник", "Музыка"] },
+            { title: "Выставка Гжельской керамики", date: "20 июля", tags: ["Гжель", "Выставка"] },
+            { title: "Ярмарка народных промыслов", date: "5 августа", tags: ["Ремесло", "Ярмарка"] },
+            { title: "День татарской культуры", date: "15 сентября", tags: ["Праздник", "Культура"] }
+        ],
+        crafts: [
+            { name: "Гжель", desc: "Традиционная русская керамика с синей росписью." },
+            { name: "Хохлома", desc: "Деревянная посуда, расписанная золотом и красными узорами." },
+            { name: "Дымковская игрушка", desc: "Глиняные игрушки, ярко расписанные вручную." },
+            { name: "Ткачество", desc: "Создание полотна на ткацком станке." }
+        ],
+        classes: [
+            { name: "Урок гжельской росписи", city: "Москва", craft: "Гжель", date: "Каждую субботу" },
+            { name: "Резьба по дереву", city: "Казань", craft: "Резьба", date: "По вторникам" },
+            { name: "Гончарное мастерство", city: "Санкт-Петербург", craft: "Гончарное дело", date: "По пятницам" },
+            { name: "Создание кукол-мотанок", city: "Москва", craft: "Ткачество", date: "10 августа" }
+        ]
+    };
+
+    // Переключение вкладок
+    function showTab(id) {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        event.target.classList.add('active');
+    }
+
+    // Работа с профилем
+    function getProfile() {
+        const data = localStorage.getItem('ethnoUser');
+        return data ? JSON.parse(data) : null;
+    }
+
+    function saveProfile() {
+        const name = document.getElementById('userName').value.trim();
+        const city = document.getElementById('userCity').value.trim();
+        const interests = document.getElementById('userInterests').value.split(',').map(i => i.trim()).filter(i => i);
+        
+        if(name && city) {
+            localStorage.setItem('ethnoUser', JSON.stringify({ name, city, interests }));
+            checkProfile();
+        } else {
+            alert("Заполните имя и город!");
+        }
+    }
+
+    function logout() {
+        localStorage.removeItem('ethnoUser');
+        checkProfile();
+    }
+
+    function checkProfile() {
+        const user = getProfile();
+        if(user) {
+            document.getElementById('authForm').style.display = 'none';
+            document.getElementById('profileInfo').style.display = 'block';
+            document.getElementById('dispName').innerText = user.name;
+            document.getElementById('dispCity').innerText = user.city;
+            document.getElementById('dispInterests').innerText = user.interests.length ? user.interests.join(', ') : 'Не указаны';
+        } else {
+            document.getElementById('authForm').style.display = 'block';
+            document.getElementById('profileInfo').style.display = 'none';
+        }
+        renderData(); // Обновляем рекомендации при входе/выходе
+    }
+
+    // Отрисовка данных
+    function renderData() {
+        const user = getProfile();
+        
+        // 1. Рекомендации
+        const recDiv = document.getElementById('recommendations');
+        recDiv.innerHTML = '';
+        if (user) {
+            let recs = [];
+            db.events.forEach(ev => {
+                if (ev.tags.some(t => user.interests.includes(t)) || user.interests.length === 0) {
+                    recs.push(`Событие: ${ev.title} (${ev.date})`);
+                }
+            });
+            if (recs.length > 0) {
+                 recDiv.innerHTML = `<div class="recommendation"><h3>✨ Рекомендовано для вас, ${user.name}:</h3><ul>${recs.map(r => `<li>${r}</li>`).join('')}</ul></div>`;
+            }
+        }
+
+        // 2. Календарь
+        document.getElementById('eventsList').innerHTML = db.events.map(e => `
+            <div class="card">
+                <h3>${e.title}</h3>
+                <p>📅 ${e.date}</p>
+                <div>${e.tags.map(t => `<span class="tag">${t}</span>`).join('')}</div>
+            </div>
+        `).join('');
+
+        // 3. Каталог
+        document.getElementById('catalogList').innerHTML = db.crafts.map(c => `
+            <div class="card">
+                <h3>${c.name}</h3>
+                <p>${c.desc}</p>
+            </div>
+        `).join('');
+
+        // 4. Мастер-классы
+        let filteredClasses = db.classes;
+        if (user && user.city) {
+            filteredClasses = db.classes.filter(c => c.city.toLowerCase() === user.city.toLowerCase());
+            document.getElementById('cityFilterInfo').innerText = `Показаны мастер-классы в вашем городе (${user.city}).`;
+            if (filteredClasses.length === 0) {
+                document.getElementById('cityFilterInfo').innerText = `В вашем городе (${user.city}) пока нет мастер-классов. Показаны все:`;
+                filteredClasses = db.classes;
+            }
+        } else {
+            document.getElementById('cityFilterInfo').innerText = "Укажите город в личном кабинете, чтобы видеть занятия рядом с вами.";
+        }
+
+        document.getElementById('classesList').innerHTML = filteredClasses.map(c => `
+            <div class="card">
+                <h3>${c.name}</h3>
+                <p>📍 Город: ${c.city} | 🎨 Направление: ${c.craft}</p>
+                <p>🕒 ${c.date}</p>
+            </div>
+        `).join('');
+    }
+
+    // Инициализация
+    checkProfile();
+</script>
+</body>
+</html>
